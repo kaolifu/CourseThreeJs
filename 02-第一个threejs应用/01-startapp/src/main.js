@@ -1,97 +1,100 @@
 import * as THREE from 'three'
-// 导入轨道控制器，用于鼠标操作旋转，缩放，平移相机
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js'
+// 导入hdr加载器
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js'
+// 导入gltf加载器
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+// 导入tween动画库
+import * as TWEEN from 'three/examples/jsm/libs/tween.module.js'
+// 导入顶点法向量辅助器
+import { VertexNormalsHelper } from 'three/examples/jsm/helpers/VertexNormalsHelper.js'
+// 导入 dracloader
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
 
-// 创建场景
 const scene = new THREE.Scene()
-
-// 创建相机
 const camera = new THREE.PerspectiveCamera(
-  45, // 视角
-  window.innerWidth / window.innerHeight, // 宽高比
-  0.1, // 近截面，相机最近能看到的距离
-  1000 // 远截面，相机最远能看到的距离
+  45,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
 )
-
-// 创建渲染器
 const renderer = new THREE.WebGLRenderer()
 renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
-
-// 创建几何体
-const geometry = new THREE.BoxGeometry(1, 1, 1)
-// 创建材质
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-const parentMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
-// 创建网格
-// 由几何体与材质组成
-let parentCube = new THREE.Mesh(geometry, parentMaterial)
-const cube = new THREE.Mesh(geometry, material)
-parentCube.add(cube) // 将子网格添加到父网格中
-
-parentCube.position.set(-3, 0, 0)
-// parentCube.scale.set(2, 2, 1)
-
-// cube.position.x = 2
-cube.position.set(3, 0, 0)
-// 设置立方体的放大
-// 局部缩放，相对父元素的缩放
-// cube.scale.set(2, 1, 1)
-// 绕着x轴旋转
-cube.rotation.x = Math.PI / 4
-
-// 将网格添加到场景中
-scene.add(parentCube)
-
-// 设置相机位置
-camera.position.z = 5
+camera.position.z = 10
 camera.position.y = 2
 camera.position.x = 2
 camera.lookAt(0, 0, 0)
-
-// 添加世界坐标辅助器
 const axesHelper = new THREE.AxesHelper(5)
 scene.add(axesHelper)
-
-// 创建轨道控制器
 const controls = new OrbitControls(camera, renderer.domElement)
-// 设置带阻尼，让控制器更真实
-controls.enableDamping = true
-// 设置阻尼系数
-controls.dampingFactor = 0.05
-// 设置自动旋转
-// controls.autoRotate = true
 
-// 渲染循环
-function animate() {
-  controls.update()
-  requestAnimationFrame(animate) // 递归调用animate函数，实现动画效果
-
-  // 旋转网格
-  // cube.rotation.x += 0.01
-  // cube.rotation.y += 0.01
-
-  // 渲染场景
-  renderer.render(scene, camera)
-}
-animate()
-
-// 监听窗口大小变化，更新渲染器大小和相机宽高比
 window.addEventListener('resize', () => {
-  // 更新渲染器大小
   renderer.setSize(window.innerWidth, window.innerHeight)
-  // 更新相机宽高比
   camera.aspect = window.innerWidth / window.innerHeight
-  // 更新相机投影矩阵
   camera.updateProjectionMatrix()
 })
 
-// 创建点击全屏按钮
-var btn = document.createElement('button')
-btn.innerHTML = '点击全屏'
-btn.style = 'position: fixed; top: 10px; right: 10px; z-index: 9999;'
-btn.onclick = () => {
-  // 全屏
-  renderer.domElement.requestFullscreen()
+const gui = new GUI()
+
+const sphereGeometry = new THREE.SphereGeometry(1, 32, 32)
+const material = new THREE.MeshStandardMaterial({})
+const sphere = new THREE.Mesh(sphereGeometry, material)
+
+scene.add(sphere)
+
+const planeGeometry = new THREE.PlaneGeometry(100, 100)
+const plane = new THREE.Mesh(planeGeometry, material)
+plane.rotation.x = -Math.PI / 2
+plane.position.y = -1
+scene.add(plane)
+
+// 环境光
+// const light = new THREE.AmbientLight(0xffffff, 0.5)
+// scene.add(light)
+
+const smallBall = new THREE.Mesh(
+  new THREE.SphereGeometry(0.1, 20, 20),
+  new THREE.MeshBasicMaterial({ color: 0xff0000 })
+)
+smallBall.position.set(2, 2, 2)
+scene.add(smallBall)
+
+// 点光源
+const pointLight = new THREE.PointLight(0xff0000, 1)
+// pointLight.position.set(2, 2, 2)
+pointLight.castShadow = true
+
+// scene.add(pointLight)
+smallBall.add(pointLight)
+
+renderer.shadowMap.enabled = true
+plane.receiveShadow = true
+sphere.castShadow = true
+
+// 设置阴影贴图模糊度
+pointLight.shadow.radius = 20
+// 设置阴影贴图分辨率
+pointLight.shadow.mapSize.set(4096, 4096)
+
+gui.add(sphere.position, 'x').min(-5).max(5).step(0.1).name('球体x')
+gui.add(smallBall.position, 'x').min(-5).max(5).step(0.1).name('点光源x')
+
+
+// 让 smallball 做圆周运动
+// 设置时钟
+const clock = new THREE.Clock()
+
+function animate() {
+  const time = clock.getElapsedTime()
+  smallBall.position.x = Math.sin(time) * 2
+  smallBall.position.z = Math.cos(time) * 2
+
+  controls.update()
+  requestAnimationFrame(animate)
+  renderer.render(scene, camera)
+  // 更新tween动画
+  TWEEN.update()
 }
-document.body.appendChild(btn)
+animate()
